@@ -30,16 +30,25 @@ async function run() {
 
     // users related apis
 
-    app.post('/users', async(req, res) => {
-        const user = req.body;
-        const result = await usersCollection.insertOne(user);
-        res.send(result);
-    })
-
     app.get('/users', async(req, res) => {
         const result = await usersCollection.find().toArray();
         res.send(result);
     })
+
+    app.post('/users', async(req, res) => {
+        const user = req.body;
+        console.log(user);
+        const query = {email: user.email}
+        const existingUser = await usersCollection.findOne(query);
+        console.log("existingUser", existingUser )
+        if (existingUser) {
+            return res.send( { message: "User already exists" } );
+        }
+        const result = await usersCollection.insertOne(user);
+        res.send(result);
+    })
+
+   
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
