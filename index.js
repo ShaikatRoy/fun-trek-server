@@ -3,6 +3,7 @@ const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -226,13 +227,59 @@ async function run() {
             res.send(instructors);
         });
 
-        // cart collection
+        // cart collection apis
+        app.get('/carts', async (req, res) => {
+            const email = req.query.email;
+            console.log(email)
+            if(!email){
+                res.send([]);
+            }
+            const query = { email: email }
+            const result = await cartCollection.find(query).toArray();
+            res.send(result);
+        })
+
         app.post('/carts', async (req, res) => {
             const item = req.body;
             console.log(item);
             const result = await cartCollection.insertOne(item);
             res.send(result);
         })
+
+        app.delete('/carts/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+          
+            try {
+              const result = await cartCollection.deleteOne(query);
+              res.send(result);
+            } catch (error) {
+              console.error('Failed to delete cart item:', error);
+              res.status(500).send({ error: true, message: 'Failed to delete cart item' });
+            }
+          });
+          
+
+        // create payment intent
+        app.post('/create-payment-intent', async(req, res) => {
+            const {price} = req.body;
+            const amount = price*100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            })
+            res.send({
+                clientSecret: paymentIntent.client_Secret
+            })
+        })
+
+        app.delete('/carts/:id', async(req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id)};
+            const result = await cartCollection.deleteOne(query);
+            res.send(result);
+          })
 
         // Send a ping to confirm a successful connection
         await client.db('admin').command({ ping: 1 });
