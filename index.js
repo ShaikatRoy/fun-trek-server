@@ -44,6 +44,8 @@ async function run() {
 
         const usersCollection = client.db('funtrekDB').collection('users');
         const classesCollection = client.db('funtrekDB').collection('classes');
+        const cartCollection = client.db('funtrekDB').collection('carts');
+
 
         app.post('/jwt', (req, res) => {
             const user = req.body;
@@ -77,6 +79,8 @@ async function run() {
             }
             next();
         };
+
+
 
         // users related APIs
         app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
@@ -112,8 +116,17 @@ async function run() {
 
         // Get all classes
         app.get('/classes', async (req, res) => {
-            const result = await classesCollection.find().toArray();
-            res.send(result);
+            try {
+                console.log('Fetching classes...'); // Add this line
+
+                const classes = await classesCollection.find().toArray();
+                console.log('Classes:', classes); // Add this line
+
+                res.send(classes);
+            } catch (error) {
+                console.error('Failed to fetch classes:', error);
+                res.status(500).send({ error: true, message: 'Failed to fetch classes' });
+            }
         });
 
 
@@ -211,7 +224,15 @@ async function run() {
             const query = { role: 'instructor' };
             const instructors = await usersCollection.find(query).toArray();
             res.send(instructors);
-          });
+        });
+
+        // cart collection
+        app.post('/carts', async (req, res) => {
+            const item = req.body;
+            console.log(item);
+            const result = await cartCollection.insertOne(item);
+            res.send(result);
+        })
 
         // Send a ping to confirm a successful connection
         await client.db('admin').command({ ping: 1 });
