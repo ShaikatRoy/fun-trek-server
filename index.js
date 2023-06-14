@@ -46,6 +46,7 @@ async function run() {
         const usersCollection = client.db('funtrekDB').collection('users');
         const classesCollection = client.db('funtrekDB').collection('classes');
         const cartCollection = client.db('funtrekDB').collection('carts');
+        const paymentCollection = client.db('funtrekDB').collection('payments');
 
 
         app.post('/jwt', (req, res) => {
@@ -103,6 +104,23 @@ async function run() {
         });
 
         // classes related APIs
+
+        // Get all classes
+        app.get('/classes', async (req, res) => {
+            try {
+                console.log('Fetching classes...'); 
+
+                const classes = await classesCollection.find().toArray();
+                console.log('Classes:', classes);
+
+                res.send(classes);
+            } catch (error) {
+                console.error('Failed to fetch classes:', error);
+                res.status(500).send({ error: true, message: 'Failed to fetch classes' });
+            }
+        });
+
+
         // Create a class
         app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
             const newClass = req.body;
@@ -112,21 +130,6 @@ async function run() {
                 res.send(result);
             } catch (error) {
                 res.status(500).send({ error: true, message: 'Failed to create class' });
-            }
-        });
-
-        // Get all classes
-        app.get('/classes', async (req, res) => {
-            try {
-                console.log('Fetching classes...'); // Add this line
-
-                const classes = await classesCollection.find().toArray();
-                console.log('Classes:', classes); // Add this line
-
-                res.send(classes);
-            } catch (error) {
-                console.error('Failed to fetch classes:', error);
-                res.status(500).send({ error: true, message: 'Failed to fetch classes' });
             }
         });
 
@@ -246,34 +249,6 @@ async function run() {
             res.send(result);
         })
 
-        app.delete('/carts/:id', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-          
-            try {
-              const result = await cartCollection.deleteOne(query);
-              res.send(result);
-            } catch (error) {
-              console.error('Failed to delete cart item:', error);
-              res.status(500).send({ error: true, message: 'Failed to delete cart item' });
-            }
-          });
-          
-
-        // create payment intent
-        app.post('/create-payment-intent', async(req, res) => {
-            const {price} = req.body;
-            const amount = price*100;
-            const paymentIntent = await stripe.paymentIntents.create({
-                amount: amount,
-                currency: 'usd',
-                payment_method_types: ['card']
-            })
-            res.send({
-                clientSecret: paymentIntent.client_Secret
-            })
-        })
-
         app.delete('/carts/:id', async(req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id)};
@@ -281,6 +256,40 @@ async function run() {
             res.send(result);
           })
 
+          
+
+        // create payment intent
+        app.post('/create-payment-intent', verifyJWT, async(req, res) => {
+            const {price} = req.body;
+            const amount = price*100;
+            console.log(price, amount)
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        })
+
+        // payment related apis
+        app.get("/carts/:id", async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await cartCollection.findOne(query);
+            res.send(result);
+          });
+
+        app.post('/payments', async(req, res) => {
+            const payment = req.body;
+            const result = await paymentCollection.insertOne(payment);
+            res.send(result)
+        })
+
+       
+
+        
         // Send a ping to confirm a successful connection
         await client.db('admin').command({ ping: 1 });
         console.log('Pinged your deployment. You successfully connected to MongoDB!');
